@@ -50,14 +50,10 @@ AdminFrame.add(totalStatus);
     public static void PatientsTable() {
     JFrame table = new JFrame("Patient's Record");
     table.setSize(800, 400);
-    // This layout makes sure the button stays at the bottom and doesn't float around
     table.setLayout(new BorderLayout(10, 10));
-
     String[] columns = {"ID", "NAME", "ROOM", "ACTION", "TIMESTAMP"};
     DefaultTableModel model = new DefaultTableModel(columns, 0);
     JTable Ptable = new JTable(model);
-
-    // --- 1. THE SEARCH LOGIC (Top of the Sandwich) ---
     TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
     Ptable.setRowSorter(sorter);
     JButton searchBtn = new JButton("Search 🔍");
@@ -71,8 +67,6 @@ AdminFrame.add(totalStatus);
         if (name != null) sorter.setRowFilter(RowFilter.regexFilter("(?i)" + name, 1)); 
     });
     clearBtn.addActionListener(e -> sorter.setRowFilter(null));
-
-    // --- 2. THE DISCHARGE LOGIC (Bottom of the Sandwich) ---
     JButton dischargeBtn = new JButton("DISCHARGE SELECTED PATIENT");
     dischargeBtn.addActionListener(e -> {
         int selectedRow = Ptable.getSelectedRow();
@@ -81,25 +75,21 @@ AdminFrame.add(totalStatus);
             String name = (String) model.getValueAt(modelRow, 1);
             String room = (String) model.getValueAt(modelRow, 2);
             String currentAction = (String) model.getValueAt(modelRow, 3);
-
-            // Safety check: Don't discharge if they already checked out
             if (currentAction.contains("Check-out")) {
                 JOptionPane.showMessageDialog(table, "Patient is already discharged!");
                 return;
             }
 
-            HBMSmain.releaseBedCount(room); // Free the bed in SQL
-            HBMSmain.login(name, room, "Check-out (Admin)"); // Log the exit
+            HBMSmain.releaseBedCount(room);
+            HBMSmain.login(name, room, "Check-out (Admin)"); 
             JOptionPane.showMessageDialog(table, name + " has been discharged!");
             
-            table.dispose(); // Close window
-            PatientsTable(); // Re-open window to see the new data
+            table.dispose();
+            PatientsTable(); 
         } else {
             JOptionPane.showMessageDialog(table, "Please select a patient row first!");
         }
     });
-
-    // --- 3. THE DATABASE FETCH (Filling the middle) ---
     try (Connection conn = HBMSmain.connectDB();
          Statement stmt = conn.createStatement();
          ResultSet rs = stmt.executeQuery("SELECT * FROM patient_records ORDER BY log_time DESC")) {
@@ -113,11 +103,9 @@ AdminFrame.add(totalStatus);
     } catch (SQLException e) {
         JOptionPane.showMessageDialog(null, "Error: " + e.getMessage());
     }
-
-    // --- 4. ASSEMBLING THE UI ---
-    table.add(searchPanel, BorderLayout.NORTH);       // Search goes TOP
-    table.add(new JScrollPane(Ptable), BorderLayout.CENTER); // Table goes MIDDLE (with scrollbar!)
-    table.add(dischargeBtn, BorderLayout.SOUTH);      // Discharge goes BOTTOM
+    table.add(searchPanel, BorderLayout.NORTH);       
+    table.add(new JScrollPane(Ptable), BorderLayout.CENTER);
+    table.add(dischargeBtn, BorderLayout.SOUTH);      
 
     table.setVisible(true);
 }
@@ -137,8 +125,6 @@ AdminFrame.add(totalStatus);
         editFrame.add(totalInput);
         editFrame.add(addBtn);
         editFrame.add(deleteBtn);
-
-        // LOGIC TO ADD OR UPDATE
         addBtn.addActionListener(e -> {
             String type = typeInput.getText().toUpperCase();
             String total = totalInput.getText();
@@ -157,8 +143,6 @@ AdminFrame.add(totalStatus);
                 JOptionPane.showMessageDialog(editFrame, "Room " + type + " Updated!");
             } catch (Exception ex) { ex.printStackTrace(); }
         });
-
-        // LOGIC TO DELETE
         deleteBtn.addActionListener(e -> {
             String type = typeInput.getText().toUpperCase();
             try (Connection conn = HBMSmain.connectDB();
@@ -177,7 +161,6 @@ AdminFrame.add(totalStatus);
     if (response == JFileChooser.APPROVE_OPTION) {
         File file = fileChooser.getSelectedFile();
         
-        // We need TWO instructions for the database
         String sqlLog = "INSERT INTO patient_records (patient_name, room_type, action_type) values (?,?,?)";
         String sqlUpdate = "UPDATE rooms SET vacant_beds = vacant_beds + ? WHERE room_type = ?";
 
@@ -186,7 +169,7 @@ AdminFrame.add(totalStatus);
              PreparedStatement roomPst = conn.prepareStatement(sqlUpdate);
              BufferedReader br = new BufferedReader(new FileReader(file))) {
 
-            conn.setAutoCommit(false); // "All or Nothing" - don't save until we are totally finished
+            conn.setAutoCommit(false); 
             String line;
 
             while ((line = br.readLine()) != null) {
@@ -195,27 +178,20 @@ AdminFrame.add(totalStatus);
                     String name = data[0].trim();
                     String room = data[1].trim().toUpperCase();
                     String action = data[2].trim();
-
-                    // STEP A: Prepare the history record
                     logPst.setString(1, name);
                     logPst.setString(2, room);
                     logPst.setString(3, action);
-                    logPst.addBatch(); // Put it on the first conveyor belt
-
-                    // STEP B: Prepare the bed count update
-                    // If they check-in, we add -1. If they check-out, we add +1.
+                    logPst.addBatch(); 
                     int change = action.equalsIgnoreCase("Check-in") ? -1 : 1;
                     roomPst.setInt(1, change);
                     roomPst.setString(2, room);
-                    roomPst.addBatch(); // Put it on the second conveyor belt
+                    roomPst.addBatch();
                 }
             }
-
-            // STEP C: Run both conveyor belts at once!
             logPst.executeBatch();
             roomPst.executeBatch();
             
-            conn.commit(); // Now save everything to the database permanently
+            conn.commit();
             JOptionPane.showMessageDialog(null, "Import Successful: Records added and Beds updated!");
 
         } catch (Exception e) {
@@ -257,8 +233,8 @@ AdminFrame.add(totalStatus);
         }
         JButton refreshBtn = new JButton("Refresh Data 🔄");
 refreshBtn.addActionListener(e -> {
-    graph.dispose(); // Close the current window
-    Analysis();      // Run the method again to get fresh SQL data
+    graph.dispose();
+    Analysis();      
 });
 graph.add(refreshBtn);
         graph.setVisible(true); 
